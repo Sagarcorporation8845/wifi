@@ -1,348 +1,105 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>ESP32 Management AP</title>
-    <style>
-        body {
-            width: fit-content;
-        }
-        table, tr, th {
-            border: 1px solid;
-            border-collapse: collapse;
-            text-align: center;
-        }
-        th, td {
-            padding:10px;
-        }
-        tr:hover, tr.selected {
-            background-color: lightblue;
-            cursor:pointer;
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>WiFi Red Team Console</title>
+<style>
+:root{color-scheme:dark;--bg:#0a0d12;--panel:#11161e;--panel2:#161d27;--line:#26303d;--text:#e8eef6;--muted:#8f9bab;--accent:#54d6b1;--warn:#f2b66d;--danger:#ff7272;--ok:#78e39e;--shadow:0 14px 40px rgba(0,0,0,.28)}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,#16202b 0,#0a0d12 42%);color:var(--text);font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:#18202a;color:var(--text);transition:.15s}button:hover:not(:disabled){border-color:#445365;transform:translateY(-1px)}button:disabled{opacity:.45;cursor:not-allowed}.primary{background:var(--accent);border-color:var(--accent);color:#06100d;font-weight:800}.danger{border-color:#713b42;color:#ffaaaa;background:#211318}.ghost{background:transparent}.shell{max-width:1280px;margin:auto;padding:22px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.brand{display:flex;align-items:center;gap:12px}.logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#2e8d79);display:grid;place-items:center;font-weight:900;color:#04100d}.eyebrow{color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.title{font-size:24px;font-weight:850}.subtitle{color:var(--muted);font-size:12px}.node{display:flex;gap:8px;align-items:center;color:var(--muted)}.dot{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 14px rgba(120,227,158,.6)}.grid{display:grid;grid-template-columns:1.35fr .95fr;gap:16px}.panel{background:linear-gradient(180deg,rgba(22,29,39,.96),rgba(15,20,28,.96));border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}.panel h2{font-size:15px;margin:0}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line)}.panel-body{padding:16px 18px}.muted{color:var(--muted)}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}.stat{padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px}.stat b{display:block;font-size:22px;margin-top:3px}.stat span{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.targets{width:100%;border-collapse:collapse}.targets th,.targets td{padding:10px 8px;text-align:left;border-bottom:1px solid #202934}.targets th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.targets tbody tr{cursor:pointer}.targets tbody tr:hover,.targets tbody tr.selected{background:#17222d}.ssid{font-weight:750;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);padding:4px 8px;border-radius:999px;color:var(--muted);font-size:11px}.pill.ok{border-color:#2e6546;color:var(--ok)}.pill.warn{border-color:#6d5031;color:var(--warn)}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field label{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}.field input,.field select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#0c1117;color:var(--text);outline:none}.field input:focus,.field select:focus{border-color:#466074}.target-card{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:12px;background:#0d131a;border:1px solid var(--line);border-radius:12px;margin-bottom:12px}.target-icon{width:34px;height:34px;border-radius:10px;background:#132922;display:grid;place-items:center;color:var(--accent)}.target-name{font-weight:800}.target-meta{color:var(--muted);font-size:12px}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.capture-state{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-bottom:12px}.state-title{font-size:17px;font-weight:850}.progress{height:9px;background:#0b1016;border:1px solid var(--line);border-radius:999px;overflow:hidden}.progress>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3f9d83,var(--accent));transition:width .2s}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.kpi{padding:10px;border:1px solid var(--line);border-radius:10px;background:#0c1117}.kpi span{display:block;color:var(--muted);font-size:11px}.kpi b{font-size:17px}.events{max-height:270px;overflow:auto;display:grid;gap:7px}.event{display:flex;gap:8px;padding:8px 10px;border-left:2px solid #2b3948;background:#0c1117;border-radius:7px}.event time{color:var(--muted);font-family:ui-monospace,monospace;font-size:11px;white-space:nowrap}.result{display:grid;gap:10px}.result-line{display:flex;justify-content:space-between;gap:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#0c1117}.result-line span:first-child{color:var(--muted)}.result-actions{display:flex;gap:8px;flex-wrap:wrap}.pmkids{display:grid;gap:6px}.pmkid{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#0b1016;word-break:break-all}.alert{margin-bottom:16px;padding:11px 13px;border-radius:10px;border:1px solid #5b4141;background:#1c1215;color:#ffb3b3}.alert:empty{display:none}.empty{padding:24px;color:var(--muted);text-align:center}.footer{margin-top:16px;color:var(--muted);font-size:11px;text-align:center}.hidden{display:none!important}@media(max-width:980px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}@media(max-width:680px){.shell{padding:12px}.topbar{align-items:flex-start}.title{font-size:20px}.form-grid,.kpis{grid-template-columns:1fr}.targets th:nth-child(3),.targets td:nth-child(3),.targets th:nth-child(5),.targets td:nth-child(5){display:none}}
+</style>
 </head>
-<body onLoad="getStatus()">
-    <h1>ESP32 Wi-Fi Penetration Tool</h1>
-    <section id="errors"></section>
-    <section id="loading">Loading... Please wait</section>
-    <section id="ready" style="display: none;">
-        <h2>Attack configuration</h2>
-        <form onSubmit="runAttack(); return false;">
-            <fieldset>
-                <legend>Select target</legend>
-                <table id="ap-list"></table>
-                <p>
-                    <button type="button" onClick="refreshAps()">Refresh</button>
-                </p>
-            </fieldset>
-            <fieldset>
-                <legend>Attack configuration</legend>
-                <p>
-                    <label for="attack_type">Attack type:</label>
-                    <select id="attack_type" onChange="updateConfigurableFields(this)" required>
-                        <option value="0" title="This type is not implemented yet." disabled>ATTACK_TYPE_PASSIVE</option>
-                        <option value="1">ATTACK_TYPE_HANDSHAKE</option>
-                        <option value="2" selected>ATTACK_TYPE_PMKID</option>
-                        <option value="3">ATTACK_TYPE_DOS</option>
-                    </select>
-                </p>
-                <p>
-                    <label for="attack_method">Attack method:</label>
-                    <select id="attack_method" required disabled>
-                        <option value="" selected disabled hidden>NOT AVAILABLE</option>
-                    </select>
-                </p>
-                <p>
-                    <label for="attack_timeout">Attack timeout (seconds):</label>
-                    <input type="number" min="0" max="255" id="attack_timeout" value="" required/>
-                </p>
-                <p>
-                    <button>Attack</button>
-                </p>
-            </fieldset>
-        </form>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand"><div class="logo">W</div><div><div class="eyebrow">Wireless Research</div><div class="title">Red Team Wi-Fi Console</div><div class="subtitle">Capture-first workflow for authorized assessment labs</div></div></div>
+    <div class="node"><i class="dot"></i><span>ESP32 online</span></div>
+  </header>
+
+  <div id="alert" class="alert"></div>
+
+  <section class="stats">
+    <div class="stat"><span>Session</span><b id="stat-session">—</b></div>
+    <div class="stat"><span>Target</span><b id="stat-target">—</b></div>
+    <div class="stat"><span>EAPOL</span><b id="stat-eapol">0</b></div>
+    <div class="stat"><span>PCAP</span><b id="stat-pcap">0 B</b></div>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="panel-head"><h2>Target discovery</h2><button id="scan">Scan Wi-Fi</button></div>
+      <div class="panel-body">
+        <div id="target-card" class="target-card hidden"><div class="target-icon">⌁</div><div><div id="target-name" class="target-name">—</div><div id="target-meta" class="target-meta">—</div></div></div>
+        <div id="targets-empty" class="empty">Run a scan to discover nearby access points.</div>
+        <table id="targets" class="targets hidden"><thead><tr><th>SSID</th><th>BSSID</th><th>CH</th><th>RSSI</th><th>Security</th></tr></thead><tbody></tbody></table>
+      </div>
     </section>
-    <section id="running" style="display: none;">
-        Time elapsed: <span id="running-progress"></span>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Capture configuration</h2><span class="pill">Target-locked</span></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="field"><label for="type">Mode</label><select id="type"><option value="1" selected>Handshake capture</option><option value="2">PMKID capture</option><option value="0">Passive handshake monitor</option><option value="3">Lab action</option></select></div>
+          <div class="field"><label for="method">Method</label><select id="method"></select></div>
+          <div class="field"><label for="timeout">Timeout (seconds)</label><input id="timeout" type="number" min="1" max="255" value="60"></div>
+        </div>
+        <div id="method-note" class="subtitle" style="margin-top:10px">Passive capture waits for the normal WPA/WPA2 exchange on the selected channel.</div>
+        <div class="actions"><button id="start" class="primary" disabled>Start capture</button><button id="stop" class="danger hidden">Stop</button><button id="reset" class="ghost">Reset session</button></div>
+      </div>
     </section>
-    <section id="result" style="display: none;">
-        <div id="result-meta">Loading result.. Please wait</div>
-        <div id="result-content"></div>
-        <button type="button" onClick="resetAttack()">New attack</button>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Live capture</h2><span id="state-pill" class="pill">IDLE</span></div>
+      <div class="panel-body">
+        <div class="capture-state"><div><div id="state-title" class="state-title">Ready</div><div id="state-subtitle" class="subtitle">Select an AP and start a session.</div></div><div id="elapsed" class="mono">0.0s</div></div>
+        <div class="progress"><i id="progress-bar"></i></div>
+        <div class="kpis"><div class="kpi"><span>EAPOL frames</span><b id="kpi-eapol">0</b></div><div class="kpi"><span>PMKIDs</span><b id="kpi-pmkid">0</b></div><div class="kpi"><span>HCCAPX</span><b id="kpi-hccapx">Not ready</b></div><div class="kpi"><span>Channel</span><b id="kpi-channel">—</b></div><div class="kpi"><span>RSSI</span><b id="kpi-rssi">—</b></div><div class="kpi"><span>PCAP bytes</span><b id="kpi-pcap">0</b></div></div>
+      </div>
     </section>
-    <script>
-    var AttackStateEnum = { READY: 0, RUNNING: 1, FINISHED: 2, TIMEOUT: 3};
-    var AttackTypeEnum = { ATTACK_TYPE_PASSIVE: 0, ATTACK_TYPE_HANDSHAKE: 1, ATTACK_TYPE_PMKID: 2, ATTACK_TYPE_DOS: 3};
-    var selectedApElement = -1;
-    var poll;
-    var poll_interval = 1000;
-    var running_poll;
-    var running_poll_interval = 1000;
-    var attack_timeout = 0;
-    var time_elapsed = 0;
-    var defaultResultContent = document.getElementById("result").innerHTML;
-    var defaultAttackMethods = document.getElementById("attack_method").outerHTML;
-    function getStatus() {
-        var oReq = new XMLHttpRequest();
-        oReq.onload = function() {
-            var arrayBuffer = oReq.response;
-            if(arrayBuffer) {
-                var attack_state = parseInt(new Uint8Array(arrayBuffer, 0, 1));
-                var attack_type = parseInt(new Uint8Array(arrayBuffer, 1, 1));
-                var attack_content_size = parseInt(new Uint16Array(arrayBuffer, 2, 1));
-                var attack_content = new Uint8Array(arrayBuffer, 4);
-                console.log("attack_state=" + attack_state + "; attack_type=" + attack_type + "; attack_count_size=" + attack_content_size);
-                var status = "ERROR: Cannot parse attack state.";
-                hideAllSections();
-                switch(attack_state) {
-                    case AttackStateEnum.READY:
-                        showAttackConfig();
-                        break;
-                    case AttackStateEnum.RUNNING:
-                        showRunning();
-                        console.log("Poll");
-                        setTimeout(getStatus, poll_interval);
-                        break;
-                    case AttackStateEnum.FINISHED:
-                        showResult("FINISHED", attack_type, attack_content_size, attack_content);
-                        break;
-                    case AttackStateEnum.TIMEOUT:
-                        showResult("TIMEOUT", attack_type, attack_content_size, attack_content);
-                        break;
-                    default:
-                        document.getElementById("errors").innerHTML = "Error loading attack status! Unknown state.";
-                }
-                return;
-                
-            }
-        };
-        oReq.onerror = function() {
-            console.log("Request error");
-            document.getElementById("errors").innerHTML = "Cannot reach ESP32. Check that you are connected to management AP. You might get disconnected during attack.";
-            getStatus();
-        };
-        oReq.ontimeout = function() {
-            console.log("Request timeout");
-            getStatus();  
-        };
-        oReq.open("GET", "http://192.168.4.1/status", true);
-        oReq.responseType = "arraybuffer";
-        oReq.send();
-    }
-    function hideAllSections(){
-        for(let section of document.getElementsByTagName("section")){
-            section.style.display = "none";
-        };
-    }
-    function showRunning(){
-        hideAllSections();
-        document.getElementById("running").style.display = "block";
-    }
-    function countProgress(){
-        if(time_elapsed >= attack_timeout){
-            document.getElementById("errors").innerHTML = "Please reconnect to management AP";
-            document.getElementById("errors").style.display = "block";
-            clearInterval(running_poll);
-        }
-        document.getElementById("running-progress").innerHTML = time_elapsed + "/" + attack_timeout + "s";
-        time_elapsed++;
-    }
-    function showAttackConfig(){
-        document.getElementById("ready").style.display = "block";
-        refreshAps();
-    }
-    function showResult(status, attack_type, attack_content_size, attack_content){
-        hideAllSections();
-        clearInterval(poll);
-        document.getElementById("result").innerHTML = defaultResultContent;
-        document.getElementById("result").style.display = "block";
-        document.getElementById("result-meta").innerHTML = status + "<br>";
-        type = "ERROR: Cannot parse attack type.";
-        switch(attack_type) {
-            case AttackTypeEnum.ATTACK_TYPE_PASSIVE:
-                type = "ATTACK_TYPE_PASSIVE";
-                break;
-            case AttackTypeEnum.ATTACK_TYPE_HANDSHAKE:
-                type = "ATTACK_TYPE_HANDSHAKE";
-                resultHandshake(attack_content, attack_content_size);
-                break;
-            case AttackTypeEnum.ATTACK_TYPE_PMKID:
-                type = "ATTACK_TYPE_PMKID";
-                resultPmkid(attack_content, attack_content_size);
-                break;
-            case AttackTypeEnum.ATTACK_TYPE_DOS:
-                type = "ATTACK_TYPE_DOS";
-                break;
-            default:
-                type = "UNKNOWN";
-        }
-        document.getElementById("result-meta").innerHTML += type + "<br>";
-    }
-    function refreshAps() {
-        document.getElementById("ap-list").innerHTML = "Loading (this may take a while)...";
-        var oReq = new XMLHttpRequest();
-        oReq.onload = function() {
-            document.getElementById("ap-list").innerHTML = "<th>SSID</th><th>BSSID</th><th>RSSI</th>";
-            var arrayBuffer = oReq.response;
-            if(arrayBuffer) {
-                var byteArray = new Uint8Array(arrayBuffer);
-                for  (let i = 0; i < byteArray.byteLength; i = i + 40) {
-                    var tr = document.createElement('tr');
-                    tr.setAttribute("id", i / 40);
-                    tr.setAttribute("onClick", "selectAp(this)");
-                    var td_ssid = document.createElement('td');
-                    var td_rssi = document.createElement('td');
-                    var td_bssid = document.createElement('td');
-                    td_ssid.innerHTML = new TextDecoder("utf-8").decode(byteArray.subarray(i + 0, i + 32));
-                    tr.appendChild(td_ssid);
-                    for(let j = 0; j < 6; j++){
-                        td_bssid.innerHTML += uint8ToHex(byteArray[i + 33 + j]) + ":";
-                    }
-                    tr.appendChild(td_bssid);
-                    td_rssi.innerHTML = byteArray[i + 39] - 255;
-                    tr.appendChild(td_rssi);
-                    document.getElementById("ap-list").appendChild(tr);
-                }
-            }
-        };
-        oReq.onerror = function() {
-            document.getElementById("ap-list").innerHTML = "ERROR";
-        };
-        oReq.open("GET", "http://192.168.4.1/ap-list", true);
-        oReq.responseType = "arraybuffer";
-        oReq.send();
-    }
-    function selectAp(el) {
-        console.log(el.id);
-        if(selectedApElement != -1){
-            selectedApElement.classList.remove("selected")
-        }
-        selectedApElement=el;
-        el.classList.add("selected");
-    }
-    function runAttack() {
-        if(selectedApElement == -1){
-            console.log("No AP selected. Attack not started.");
-            document.getElementById("errors").innerHTML = "No AP selected. Attack not started.";
-            return;
-        }
-        hideAllSections();
-        document.getElementById("running").style.display = "block";
-        var arrayBuffer = new ArrayBuffer(4);
-        var uint8Array = new Uint8Array(arrayBuffer);
-        uint8Array[0] = parseInt(selectedApElement.id);
-        uint8Array[1] = parseInt(document.getElementById("attack_type").value);
-        uint8Array[2] = parseInt(document.getElementById("attack_method").value);
-        uint8Array[3] = parseInt(document.getElementById("attack_timeout").value);
-        var oReq = new XMLHttpRequest();
-        oReq.open("POST", "http://192.168.4.1/run-attack", true);
-        oReq.send(arrayBuffer);
-        getStatus();
-        attack_timeout = parseInt(document.getElementById("attack_timeout").value);
-        time_elapsed = 0;
-        running_poll = setInterval(countProgress, running_poll_interval);
-    }
-    function resetAttack(){
-        hideAllSections();
-        showAttackConfig();
-        var oReq = new XMLHttpRequest();
-        oReq.open("HEAD", "http://192.168.4.1/reset", true);
-        oReq.send();
-    }
-    function resultPmkid(attack_content, attack_content_size){
-        var mac_ap = "";
-        var mac_sta = "";
-        var ssid = "";
-        var ssid_text = "";
-        var pmkid = "";
-        var index = 0;
-        for(let i = 0; i < 6; i = i + 1) {
-            mac_ap += uint8ToHex(attack_content[index + i]);
-        }
-        index = index + 6;
-        for(let i = 0; i < 6; i = i + 1) {
-            mac_sta += uint8ToHex(attack_content[index + i]);
-        }
-        index = index + 6;
-        for(let i = 0; i < attack_content[index]; i = i + 1) {
-            ssid += uint8ToHex(attack_content[index + 1 + i]);
-            ssid_text += String.fromCharCode(attack_content[index + 1 + i]);
-        }
-        index = index + attack_content[index] + 1;
-        var pmkid_cnt = 0;
-        for(let i = 0; i < attack_content_size - index; i = i + 1) {
-            if((i % 16) == 0){
-                pmkid += "<br>";
-                pmkid += "</code>PMKID #" + pmkid_cnt + ": <code>";
-                pmkid_cnt += 1;
-            }
-            pmkid += uint8ToHex(attack_content[index + i]);
-        }
-        document.getElementById("result-content").innerHTML = "";
-        document.getElementById("result-content").innerHTML += "MAC AP: <code>" + mac_ap + "</code><br>";
-        document.getElementById("result-content").innerHTML += "MAC STA: <code>" + mac_sta + "</code><br>";
-        document.getElementById("result-content").innerHTML += "(E)SSID: <code>" + ssid + "</code> (" + ssid_text + ")";
-        document.getElementById("result-content").innerHTML += "<code>" + pmkid + "</code><br>";
-        document.getElementById("result-content").innerHTML += "<br>Hashcat ready format:"
-        document.getElementById("result-content").innerHTML += "<code>" + pmkid + "*" + mac_ap + "*" + mac_sta  + "*" + ssid  + "</code><br>";
-    }
-    function resultHandshake(attack_content, attack_content_size){
-        document.getElementById("result-content").innerHTML = "";
-        var pcap_link = document.createElement("a");
-        pcap_link.setAttribute("href", "capture.pcap");
-        pcap_link.text = "Download PCAP file";
-        var hccapx_link = document.createElement("a");
-        hccapx_link.setAttribute("href", "capture.hccapx");
-        hccapx_link.text = "Download HCCAPX file";
-        document.getElementById("result-content").innerHTML += "<p>" + pcap_link.outerHTML + "</p>";
-        document.getElementById("result-content").innerHTML += "<p>" + hccapx_link.outerHTML + "</p>";
-        var handshakes = "";
-        for(let i = 0; i < attack_content_size; i = i + 1) {
-            handshakes += uint8ToHex(attack_content[i]);
-            if(i % 50 == 49) {
-                handshakes += "\n";
-            }
-        }
-        document.getElementById("result-content").innerHTML += "<pre><code>" + handshakes + "</code></pre>";
-    }
-    function uint8ToHex(uint8){
-        return ("00" + uint8.toString(16)).slice(-2);
-    }
-    function updateConfigurableFields(el){
-        document.getElementById("attack_method").outerHTML = defaultAttackMethods;
-        switch(parseInt(el.value)){
-            case AttackTypeEnum.ATTACK_TYPE_PASSIVE:
-                console.log("PASSIVE configuration");
-                break;
-            case AttackTypeEnum.ATTACK_TYPE_HANDSHAKE:
-                console.log("HANDSHAKE configuration");
-                document.getElementById("attack_timeout").value = 60;
-                setAttackMethods(["DEAUTH_ROGUE_AP (PASSIVE)", "DEAUTH_BROADCAST (ACTIVE)", "CAPTURE_ONLY (PASSIVE)"]);
-                break;
-            case AttackTypeEnum.ATTACK_TYPE_PMKID:
-                console.log("PMKID configuration");
-                document.getElementById("attack_timeout").value = 5;
-                break;
-            case AttackTypeEnum.ATTACK_TYPE_DOS:
-                console.log("DOS configuration");
-                document.getElementById("attack_timeout").value = 120;
-                setAttackMethods(["DEAUTH_ROGUE_AP (PASSIVE)", "DEAUTH_BROADCAST (ACTIVE)", "DEAUTH_COMBINE_ALL"]);
-                break;
-            default:
-                console.log("Unknown attack type");
-                break;
-        }
-    }
-    function setAttackMethods(attackMethodsArray){
-        document.getElementById("attack_method").removeAttribute("disabled");
-        attackMethodsArray.forEach(function(method, index){
-            let option = document.createElement("option");
-            option.value = index;
-            option.text = method;
-            option.selected = true;
-            document.getElementById("attack_method").appendChild(option);
-        });
-    }
-    </script>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Session events</h2><span class="subtitle">Live telemetry</span></div>
+      <div class="panel-body"><div id="events" class="events"><div class="empty">No session activity yet.</div></div></div>
+    </section>
+
+    <section class="panel" style="grid-column:1/-1">
+      <div class="panel-head"><h2>Capture result</h2><span id="result-pill" class="pill">No result</span></div>
+      <div class="panel-body"><div id="result" class="result"><div class="empty">Completed captures will appear here. PCAP is kept as the primary forensic artifact.</div></div></div>
+    </section>
+  </div>
+  <div class="footer">Use only against networks and devices you are authorized to assess.</div>
+</div>
+
+<script>
+const API={scan:'/api/ap-list',session:'/api/session',run:'/run-attack',reset:'/reset',status:'/status',pcap:'/capture.pcap',hccapx:'/capture.hccapx'};
+const TYPE={PASSIVE:0,HANDSHAKE:1,PMKID:2,DOS:3};
+const STATE={IDLE:'IDLE',RUNNING:'RUNNING',COMPLETE:'COMPLETE',TIMEOUT:'TIMEOUT',FAILED:'FAILED'};
+let selectedAp=-1, selectedTarget=null, session=null, pollTimer=null, lastState='', lastEapol=0, lastPmkid=0, lastPcap=0, renderedResultKey='';
+const el=id=>document.getElementById(id);
+function setAlert(msg){el('alert').textContent=msg||''}
+function bytes(n){if(!Number.isFinite(n))return '0 B';const u=['B','KB','MB'];let i=0;let v=n;while(v>=1024&&i<u.length-1){v/=1024;i++}return (i?v.toFixed(v<10?1:0):Math.round(v))+' '+u[i]}
+function mac(m){return m||'—'}
+function now(){return new Date().toLocaleTimeString([], {hour12:false})}
+function logEvent(message){const box=el('events');if(box.querySelector('.empty'))box.innerHTML='';const row=document.createElement('div');row.className='event';const t=document.createElement('time');t.textContent=now();const s=document.createElement('span');s.textContent=message;row.append(t,s);box.prepend(row);while(box.children.length>40)box.removeChild(box.lastChild)}
+function stateLabel(state){return state==='COMPLETE'?'COMPLETE':state==='RUNNING'?'RUNNING':state==='TIMEOUT'?'TIMEOUT':state==='FAILED'?'FAILED':'IDLE'}
+function methodName(type,method){if(type===TYPE.HANDSHAKE||type===TYPE.PASSIVE)return method===0?'Rogue AP':method===1?'Broadcast':'Passive';if(type===TYPE.DOS)return method===0?'Rogue AP':method===1?'Broadcast':'Combined';return 'N/A'}
+function modeName(type){return type===TYPE.HANDSHAKE?'Handshake':type===TYPE.PMKID?'PMKID':type===TYPE.PASSIVE?'Passive handshake':'Lab action'}
+function populateMethods(){const type=Number(el('type').value);const select=el('method');select.innerHTML='';if(type===TYPE.PMKID){const o=document.createElement('option');o.value='0';o.textContent='Automatic';select.appendChild(o);select.disabled=true;el('timeout').value=5;el('method-note').textContent='PMKID mode performs the connection exchange needed for PMKID observation and stops when a candidate is found.';return}select.disabled=false;const arr=type===TYPE.HANDSHAKE||type===TYPE.PASSIVE?[['2','Passive capture'],['0','Rogue AP'],['1','Broadcast']]:[['0','Rogue AP'],['1','Broadcast'],['2','Combined']];arr.forEach((x,i)=>{const o=document.createElement('option');o.value=x[0];o.textContent=x[1];if(i===0)o.selected=true;select.appendChild(o)});el('timeout').value=type===TYPE.PASSIVE?60:type===TYPE.HANDSHAKE?60:120;el('method-note').textContent=type===TYPE.PASSIVE?'Passive capture observes the selected channel without active radio actions.':type===TYPE.HANDSHAKE?'Capture completes automatically when a valid handshake candidate is assembled.':'Lab-action mode reuses the project’s existing controlled action methods.'}
+function renderTargets(aps){const body=el('targets').querySelector('tbody');body.innerHTML='';selectedAp=-1;selectedTarget=null;el('start').disabled=true;if(!aps.length){el('targets').classList.add('hidden');el('targets-empty').classList.remove('hidden');return}el('targets-empty').classList.add('hidden');el('targets').classList.remove('hidden');aps.forEach(ap=>{const tr=document.createElement('tr');tr.dataset.id=String(ap.id);const cells=[['ssid','ssid'],['bssid','mono'],['channel',''],['rssi',''],['auth','']];cells.forEach(([key,cls])=>{const td=document.createElement('td');td.textContent=String(ap[key]??'—');if(cls)td.className=cls;tr.appendChild(td)});tr.addEventListener('click',()=>selectTarget(tr,ap));body.appendChild(tr)})}
+function selectTarget(row,ap){document.querySelectorAll('#targets tbody tr.selected').forEach(x=>x.classList.remove('selected'));row.classList.add('selected');selectedAp=ap.id;selectedTarget=ap;el('start').disabled=false;el('target-card').classList.remove('hidden');el('target-name').textContent=ap.ssid||'(hidden SSID)';el('target-meta').textContent=ap.bssid+' · ch '+ap.channel+' · '+ap.rssi+' dBm · '+ap.auth;el('stat-target').textContent=ap.ssid||'Hidden';logEvent('Target selected: '+(ap.ssid||'hidden')+' on channel '+ap.channel)}
+async function scan(){setAlert('');el('scan').disabled=true;el('scan').textContent='Scanning…';try{const r=await fetch(API.scan,{cache:'no-store'});if(!r.ok)throw new Error('scan HTTP '+r.status);const j=await r.json();renderTargets(j.aps||[]);logEvent('Wi-Fi scan completed: '+(j.aps||[]).length+' APs')}catch(e){setAlert('Wi-Fi scan could not complete. The ESP32 may temporarily pause its management AP while the radio scans. Reconnect and retry if needed.');logEvent('Scan failed: '+e.message)}finally{el('scan').disabled=false;el('scan').textContent='Scan Wi-Fi'}}
+async function start(){setAlert('');if(selectedAp<0||!selectedTarget){setAlert('Select a target access point first.');return}const timeout=Number(el('timeout').value);if(!Number.isInteger(timeout)||timeout<1||timeout>255){setAlert('Timeout must be between 1 and 255 seconds.');return}const type=Number(el('type').value);const method=Number(el('method').value||0);const payload=new Uint8Array([selectedAp,type,method,timeout]);el('start').disabled=true;el('stop').classList.remove('hidden');try{const r=await fetch(API.run,{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:payload});if(!r.ok)throw new Error('start HTTP '+r.status);logEvent('Session start requested');await pullSession()}catch(e){setAlert('The session could not be started: '+e.message);el('start').disabled=false;el('stop').classList.add('hidden')}}
+async function stop(){try{await fetch(API.reset,{method:'HEAD',cache:'no-store'});logEvent('Session stopped/reset')}catch(e){setAlert('Stop request failed: '+e.message)}finally{await pullSession()}}
+async function reset(){try{await fetch(API.reset,{method:'HEAD',cache:'no-store'});logEvent('Console reset')}catch(e){setAlert('Reset request failed: '+e.message)}finally{selectedAp=-1;selectedTarget=null;el('start').disabled=true;el('target-card').classList.add('hidden');await pullSession()}}
+function renderSession(s){const previous=session;session=s;const running=s.state===STATE.RUNNING;if(previous&&previous.id!==s.id){lastState='';lastEapol=0;lastPmkid=0;lastPcap=0;renderedResultKey='';}const pct=s.timeout_sec?Math.min(100,(s.elapsed_ms/1000)/s.timeout_sec*100):0;el('state-pill').textContent=stateLabel(s.state);el('state-pill').className='pill '+(s.state===STATE.COMPLETE?'ok':s.state===STATE.TIMEOUT||s.state===STATE.FAILED?'warn':'');el('result-pill').textContent=s.state===STATE.COMPLETE?'Result ready':s.state;el('result-pill').className='pill '+(s.state===STATE.COMPLETE?'ok':s.state===STATE.FAILED?'warn':'');el('stat-session').textContent=s.id?s.id:'—';el('stat-eapol').textContent=s.metrics?.eapol_frames??0;el('stat-pcap').textContent=bytes(s.metrics?.pcap_size??0);el('state-title').textContent=s.state===STATE.IDLE?'Ready':s.state==='RUNNING'?'Capture in progress':s.state==='COMPLETE'?'Capture complete':s.state==='TIMEOUT'?'Session timed out':'Session failed';el('state-subtitle').textContent=s.target?.ssid?s.target.ssid+' · '+s.target.bssid+' · '+modeName(currentNumericType(s.type)):'';el('elapsed').textContent=((s.elapsed_ms||0)/1000).toFixed(1)+'s';el('progress-bar').style.width=(running?pct: s.state===STATE.COMPLETE?100:0)+'%';el('kpi-eapol').textContent=s.metrics?.eapol_frames??0;el('kpi-pmkid').textContent=s.metrics?.pmkid_count??0;el('kpi-hccapx').textContent=s.result?.hccapx_ready?'Ready':'Not ready';el('kpi-channel').textContent=s.target?.channel??'—';el('kpi-rssi').textContent=s.target?.rssi??'—';el('kpi-pcap').textContent=bytes(s.metrics?.pcap_size??0);if(s.target?.ssid)el('stat-target').textContent=s.target.ssid;el('stop').classList.toggle('hidden',!running);el('start').disabled=running||selectedAp<0;if(s.state!==lastState){if(s.state==='RUNNING')logEvent('Capture session #'+s.id+' started');if(s.state==='COMPLETE')logEvent('Session completed');if(s.state==='TIMEOUT')logEvent('Session timed out');if(s.state==='FAILED')logEvent('Session failed');lastState=s.state}const e=s.metrics?.eapol_frames??0,p=s.metrics?.pmkid_count??0,pc=s.metrics?.pcap_size??0;if(e>lastEapol){logEvent('EAPOL frame observed · total '+e);lastEapol=e}if(p>lastPmkid){logEvent('PMKID candidate observed · total '+p);lastPmkid=p}if(pc>lastPcap){lastPcap=pc}}
+function currentNumericType(name){return name==='HANDSHAKE'?1:name==='PMKID'?2:name==='PASSIVE'?0:3}
+async function pullSession(){try{const r=await fetch(API.session,{cache:'no-store'});if(!r.ok)throw new Error('session HTTP '+r.status);const s=await r.json();renderSession(s);const terminal=s.state===STATE.COMPLETE||s.state===STATE.TIMEOUT||s.state===STATE.FAILED;if(terminal){const key=s.id+':'+s.state;if(key!==renderedResultKey){renderedResultKey=key;await renderResult(s)}}else{renderedResultKey='';el('result').innerHTML='<div class="empty">Capture is live. When it completes, the session artifacts and forensic summary will appear here.</div>'}}catch(e){setAlert('Cannot read ESP32 session state: '+e.message)}finally{clearTimeout(pollTimer);pollTimer=setTimeout(pullSession,session?.state===STATE.RUNNING?450:1200)}}
+async function readStatus(){const r=await fetch(API.status,{cache:'no-store'});if(!r.ok)throw new Error('status HTTP '+r.status);return new Uint8Array(await r.arrayBuffer())}
+function hex(arr){let s='';for(const b of arr)s+=b.toString(16).padStart(2,'0');return s}
+function parsePmkid(content){if(content.length<13)return null;let i=0;const sta=macFromBytes(content.slice(i,i+6));i+=6;const ap=macFromBytes(content.slice(i,i+6));i+=6;const ssidLen=content[i++];if(i+ssidLen>content.length)return null;const ssid=new TextDecoder().decode(content.slice(i,i+ssidLen));i+=ssidLen;const list=[];while(i+16<=content.length){list.push(hex(content.slice(i,i+16)));i+=16}return{sta,ap,ssid,list}}
+function macFromBytes(a){return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join(':')}
+async function renderResult(s){const root=el('result');root.innerHTML='';const add=(k,v)=>{const row=document.createElement('div');row.className='result-line';const a=document.createElement('span');a.textContent=k;const b=document.createElement('b');b.textContent=v;row.append(a,b);root.appendChild(row)};add('Session','#'+s.id);add('Target',s.target?.ssid||'—');add('BSSID',s.target?.bssid||'—');add('Mode',modeName(currentNumericType(s.type)));add('Method',s.method||'N/A');add('EAPOL frames',String(s.metrics?.eapol_frames??0));add('PCAP size',bytes(s.metrics?.pcap_size??0));if(s.result?.hccapx_ready)add('Handshake artifact','HCCAPX ready');const actions=document.createElement('div');actions.className='result-actions';if((s.metrics?.pcap_size??0)>0){const a=document.createElement('a');a.href=API.pcap;a.textContent='Download PCAP';a.className='pill ok';actions.appendChild(a)}if(s.result?.hccapx_ready){const a=document.createElement('a');a.href=API.hccapx;a.textContent='Download HCCAPX';a.className='pill ok';actions.appendChild(a)}root.appendChild(actions);if(currentNumericType(s.type)===TYPE.PMKID&&s.state===STATE.COMPLETE){try{const bytes=await readStatus();const parsed=parsePmkid(bytes.slice(4));if(parsed){add('STA',parsed.sta);add('AP',parsed.ap);add('SSID',parsed.ssid||'(empty)');const list=document.createElement('div');list.className='pmkids';parsed.list.forEach((x,idx)=>{const d=document.createElement('div');d.className='pmkid mono';d.textContent='PMKID #'+(idx+1)+'  '+x;list.appendChild(d)});root.appendChild(list)}}catch(e){logEvent('Could not read PMKID result: '+e.message)}}}
+el('type').addEventListener('change',populateMethods);el('scan').addEventListener('click',scan);el('start').addEventListener('click',start);el('stop').addEventListener('click',stop);el('reset').addEventListener('click',reset);populateMethods();pullSession();scan();
+</script>
 </body>
 </html>

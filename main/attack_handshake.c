@@ -22,7 +22,9 @@ static const wifi_ap_record_t *ap_record = NULL;
 
 static void eapolkey_frame_handler(void *args, esp_event_base_t event_base,
                                    int32_t event_id, void *event_data) {
-    if (event_data == NULL) {
+    const attack_status_t *status = attack_get_status();
+
+    if (status == NULL || status->state != RUNNING || event_data == NULL) {
         return;
     }
 
@@ -68,16 +70,17 @@ void attack_handshake_start(attack_config_t *attack_config) {
     method = attack_config->method;
     ap_record = attack_config->ap_record;
 
-    pcap_serializer_init();
+    if (pcap_serializer_init() == NULL) {
+        ESP_LOGE(TAG, "Unable to allocate PCAP capture buffer");
+        attack_update_status(FAILED);
+        capture_session_finish(CAPTURE_SESSION_FAILED);
+        return;
+    }
+
     hccapx_serializer_init(
         ap_record->ssid,
         strnlen((const char *)ap_record->ssid, sizeof(ap_record->ssid)));
 
-    /*
-     * Register all asynchronous consumers before enabling the sniffer. This
-     * closes the race where the first EAPOL frame can arrive before its event
-     * handler is installed.
-     */
     wifictl_sniffer_filter_frame_types(true, false, false);
 
     ESP_ERROR_CHECK(esp_event_handler_register(
@@ -102,12 +105,13 @@ void attack_handshake_start(attack_config_t *attack_config) {
             break;
 
         case ATTACK_HANDSHAKE_METHOD_PASSIVE:
-            /* Capture only; no active radio action. */
             break;
 
         default:
             ESP_LOGE(TAG, "Unknown handshake method");
             attack_handshake_stop();
+            attack_update_status(FAILED);
+            capture_session_finish(CAPTURE_SESSION_FAILED);
             return;
     }
 }

@@ -4,10 +4,10 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include "arpa/inet.h"
 
 #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 #include "esp_log.h"
-#include "esp_err.h"
 
 #include "frame_analyzer_parser.h"
 #include "frame_analyzer_types.h"
@@ -92,10 +92,6 @@ static unsigned save_eapol(const eapol_packet_t *eapol_packet,
     memcpy(hccapx.keymic, eapol_key_packet->key_mic,
            sizeof(hccapx.keymic));
 
-    /*
-     * HCCAPX expects the key MIC in the saved EAPOL packet to be zeroed.
-     * Derive the offset from the structure instead of relying on a magic 81.
-     */
     const size_t mic_offset =
         sizeof(eapol_packet_header_t) +
         offsetof(eapol_key_packet_t, key_mic);
@@ -116,10 +112,6 @@ static void ap_message_m1(const eapol_key_packet_t *eapol_key_packet) {
 
 static void ap_message_m3(const eapol_packet_t *eapol_packet,
                           const eapol_key_packet_t *eapol_key_packet) {
-    /*
-     * M3 also carries ANonce. A passive capture can start at M3, so retain it
-     * when M1 was not observed.
-     */
     if (message_ap == 0) {
         memcpy(hccapx.nonce_ap, eapol_key_packet->key_nonce,
                sizeof(hccapx.nonce_ap));

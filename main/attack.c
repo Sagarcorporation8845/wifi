@@ -2,7 +2,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 #include "esp_log.h"
@@ -27,7 +26,7 @@ static attack_status_t attack_status = {
 static esp_timer_handle_t attack_timeout_handle;
 
 static void attack_cancel_timeout(void) {
-    esp_err_t result = esp_timer_stop(attack_timeout_handle);
+    const esp_err_t result = esp_timer_stop(attack_timeout_handle);
 
     if (result != ESP_OK && result != ESP_ERR_INVALID_STATE) {
         ESP_LOGE(TAG, "Failed to stop attack timeout timer: %s",
@@ -37,12 +36,13 @@ static void attack_cancel_timeout(void) {
 
 static void attack_stop_active(void) {
     switch (attack_status.type) {
-        case ATTACK_TYPE_PMKID:
-            attack_pmkid_stop();
-            break;
-
+        case ATTACK_TYPE_PASSIVE:
         case ATTACK_TYPE_HANDSHAKE:
             attack_handshake_stop();
+            break;
+
+        case ATTACK_TYPE_PMKID:
+            attack_pmkid_stop();
             break;
 
         case ATTACK_TYPE_DOS:
@@ -72,21 +72,18 @@ void attack_append_status_content(uint8_t *buffer, unsigned size) {
         return;
     }
 
-    /*
-     * The binary status endpoint is a legacy compatibility path. Keep a
-     * bounded result buffer so a malformed or unexpectedly long capture cannot
-     * exhaust the ESP32 heap.
-     */
     const unsigned max_size = UINT16_MAX;
+
     if (attack_status.content_size >= max_size) {
         return;
     }
 
-    unsigned available = max_size - attack_status.content_size;
-    unsigned append_size = size > available ? available : size;
+    const unsigned available = max_size - attack_status.content_size;
+    const unsigned append_size = size > available ? available : size;
 
     char *reallocated_content =
-        realloc(attack_status.content, attack_status.content_size + append_size);
+        realloc(attack_status.content,
+                attack_status.content_size + append_size);
 
     if (reallocated_content == NULL) {
         ESP_LOGE(TAG, "Error reallocating status content");
@@ -115,6 +112,7 @@ char *attack_alloc_result_content(unsigned size) {
     }
 
     attack_status.content = (char *)malloc(size);
+
     if (attack_status.content == NULL) {
         ESP_LOGE(TAG, "Unable to allocate %u bytes for result", size);
         return NULL;
@@ -133,7 +131,7 @@ static void attack_timeout(void *arg) {
 }
 
 static esp_err_t validate_attack_request(const attack_request_t *request) {
-    if (request == NULL) {
+    if (request == NULL || request->timeout == 0) {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -141,35 +139,10 @@ static esp_err_t validate_attack_request(const attack_request_t *request) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (request->timeout == 0) {
+    if ((request->type == ATTACK_TYPE_HANDSHAKE ||
+         request->type == ATTACK_TYPE_DOS) &&
+        request->method >= 3) {
         return ESP_ERR_INVALID_ARG;
-    }
-
-    switch (request->type) {
-        case ATTACK_TYPE_HANDSHAKE:
-            if (request->method >= 3) {
-                return ESP_ERR_INVALID_ARG;
-            }
-            break;
-
-        case ATTACK_TYPE_DOS:
-            if (request->method >= 3) {
-                return ESP_ERR_INVALID_ARG;
-            }
-            break;
-
-        case ATTACK_TYPE_PMKID:
-            /*
-             * PMKID does not use an attack method. The value is ignored for
-             * compatibility with the fixed request structure.
-             */
-            break;
-
-        case ATTACK_TYPE_PASSIVE:
-            break;
-
-        default:
-            return ESP_ERR_INVALID_ARG;
     }
 
     return ESP_OK;
@@ -190,8 +163,8 @@ static void attack_request_handler(void *args, esp_event_base_t event_base,
 
     if (validate_attack_request(attack_request) != ESP_OK) {
         ESP_LOGE(TAG, "Invalid attack request");
+        capture_session_reset();
         attack_status.state = FAILED;
-        capture_session_finish(CAPTURE_SESSION_FAILED);
         return;
     }
 
@@ -200,8 +173,8 @@ static void attack_request_handler(void *args, esp_event_base_t event_base,
 
     if (ap_record == NULL) {
         ESP_LOGE(TAG, "Requested AP record is no longer available");
+        capture_session_reset();
         attack_status.state = FAILED;
-        capture_session_finish(CAPTURE_SESSION_FAILED);
         return;
     }
 
@@ -221,7 +194,7 @@ static void attack_request_handler(void *args, esp_event_base_t event_base,
         attack_request->method,
         attack_request->timeout);
 
-    esp_err_t timer_result = esp_timer_start_once(
+    const esp_err_t timer_result = esp_timer_start_once(
         attack_timeout_handle,
         (uint64_t)attack_request->timeout * 1000000ULL);
 
@@ -250,10 +223,6 @@ static void attack_request_handler(void *args, esp_event_base_t event_base,
             break;
 
         case ATTACK_TYPE_PASSIVE:
-            /*
-             * Preserve the legacy passive type but route it through the same
-             * passive handshake collector used by the handshake feature.
-             */
             attack_config.method = ATTACK_HANDSHAKE_METHOD_PASSIVE;
             attack_handshake_start(&attack_config);
             break;

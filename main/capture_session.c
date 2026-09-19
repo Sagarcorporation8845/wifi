@@ -1,7 +1,6 @@
 #include "capture_session.h"
 
 #include <string.h>
-#include <ctype.h>
 
 #include "esp_err.h"
 #include "esp_timer.h"
@@ -30,17 +29,12 @@ static void copy_ssid(char *dst, const uint8_t *src) {
     }
 
     for (size_t i = 0; i < 32 && out < 32; ++i) {
-        unsigned char c = src[i];
+        const unsigned char c = src[i];
 
         if (c == '\0') {
             break;
         }
 
-        /*
-         * Keep the session JSON deterministic and safe for malformed SSIDs.
-         * Printable UTF-8 bytes are preserved only when they are ASCII; other
-         * bytes are replaced because the embedded JSON API is ASCII-safe.
-         */
         dst[out++] = (c >= 0x20 && c <= 0x7e) ? (char)c : '?';
     }
 
@@ -89,11 +83,13 @@ void capture_session_start(const wifi_ap_record_t *ap_record,
     current_session.channel = ap_record->primary;
     current_session.rssi = ap_record->rssi;
 
-    memcpy(current_session.bssid, ap_record->bssid, sizeof(current_session.bssid));
+    memcpy(current_session.bssid, ap_record->bssid,
+           sizeof(current_session.bssid));
     copy_ssid(current_session.ssid, ap_record->ssid);
 
     current_session.state = CAPTURE_SESSION_RUNNING;
-    current_session.started_at_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
+    current_session.started_at_ms =
+        (uint32_t)(esp_timer_get_time() / 1000ULL);
 
     unlock_session();
 }
@@ -124,11 +120,9 @@ void capture_session_record_pmkid(unsigned count) {
     }
 
     if (current_session.state == CAPTURE_SESSION_RUNNING) {
-        if (count > UINT16_MAX) {
-            current_session.pmkid_count = UINT16_MAX;
-        } else {
-            current_session.pmkid_count = (uint16_t)count;
-        }
+        current_session.pmkid_count = count > UINT16_MAX
+            ? UINT16_MAX
+            : (uint16_t)count;
     }
 
     unlock_session();
@@ -153,8 +147,10 @@ void capture_session_finish(capture_session_state_t state) {
     current_session.state = state;
 
     if (current_session.started_at_ms != 0) {
-        uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
-        current_session.elapsed_ms = now_ms - current_session.started_at_ms;
+        const uint32_t now_ms =
+            (uint32_t)(esp_timer_get_time() / 1000ULL);
+        current_session.elapsed_ms =
+            now_ms - current_session.started_at_ms;
     }
 
     unlock_session();
@@ -169,8 +165,10 @@ bool capture_session_get(capture_session_t *session) {
 
     if (current_session.state == CAPTURE_SESSION_RUNNING &&
         current_session.started_at_ms != 0) {
-        uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
-        session->elapsed_ms = now_ms - current_session.started_at_ms;
+        const uint32_t now_ms =
+            (uint32_t)(esp_timer_get_time() / 1000ULL);
+        session->elapsed_ms =
+            now_ms - current_session.started_at_ms;
     }
 
     unlock_session();

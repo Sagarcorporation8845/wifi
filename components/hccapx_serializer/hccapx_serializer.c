@@ -47,6 +47,10 @@ void hccapx_serializer_init(const uint8_t *ssid, unsigned size) {
     hccapx.message_pair = 255;
     hccapx.keyver = HCCAPX_KEYVER_WPA2;
 
+    message_ap = 0;
+    message_sta = 0;
+    eapol_source = 0;
+
     if (ssid == NULL) {
         return;
     }
@@ -57,10 +61,6 @@ void hccapx_serializer_init(const uint8_t *ssid, unsigned size) {
 
     hccapx.essid_len = (uint8_t)size;
     memcpy(hccapx.essid, ssid, size);
-
-    message_ap = 0;
-    message_sta = 0;
-    eapol_source = 0;
 }
 
 hccapx_t *hccapx_serializer_get() {
@@ -91,6 +91,17 @@ static unsigned save_eapol(const eapol_packet_t *eapol_packet,
     memcpy(hccapx.eapol, eapol_packet, eapol_len);
     memcpy(hccapx.keymic, eapol_key_packet->key_mic,
            sizeof(hccapx.keymic));
+
+    /*
+     * HCCAPX represents the WPA/WPA2 key version differently from the
+     * descriptor-version bitfield used on the wire. Descriptor version 1 is
+     * the legacy WPA form; versions 2/3 use the WPA2-compatible serializer
+     * representation.
+     */
+    hccapx.keyver =
+        eapol_key_packet->key_information.key_descriptor_version == 1
+            ? HCCAPX_KEYVER_WPA
+            : HCCAPX_KEYVER_WPA2;
 
     const size_t mic_offset =
         sizeof(eapol_packet_header_t) +

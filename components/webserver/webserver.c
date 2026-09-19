@@ -18,7 +18,7 @@
 #include "pcap_serializer.h"
 #include "wifi_controller.h"
 
-#include "pages/page_index.h"
+#include "page_index.h"
 
 static const char *TAG = "webserver";
 ESP_EVENT_DEFINE_BASE(WEBSERVER_EVENTS);
@@ -88,9 +88,8 @@ static void format_mac(const uint8_t *mac, char *out, size_t out_size) {
 }
 
 /*
- * Encode scanned SSIDs as JSON-safe strings. We intentionally represent
- * non-ASCII bytes as \u00XX so malformed beacon data cannot corrupt JSON or
- * become HTML when consumed by the UI.
+ * JSON escaping for the SSID byte string. Non-ASCII bytes are emitted as
+ * \u00XX to keep the embedded API deterministic and avoid malformed JSON.
  */
 static size_t json_escape_bytes(const uint8_t *src, size_t src_len,
                                 char *dst, size_t dst_size) {
@@ -119,11 +118,17 @@ static size_t json_escape_bytes(const uint8_t *src, size_t src_len,
             if (out + 6 >= dst_size) {
                 break;
             }
-            int written = snprintf(&dst[out], dst_size - out,
-                                   "\\u00%02x", c);
+
+            const int written = snprintf(
+                &dst[out],
+                dst_size - out,
+                "\\u00%02x",
+                c);
+
             if (written < 0) {
                 break;
             }
+
             out += (size_t)written;
         } else {
             dst[out++] = (char)c;
@@ -146,9 +151,21 @@ static const char *auth_mode_name(wifi_auth_mode_t authmode) {
     }
 }
 
+static esp_err_t send_conflict(httpd_req_t *req, const char *message) {
+    httpd_resp_set_status(req, "409 Conflict");
+    httpd_resp_set_type(req, "text/plain; charset=utf-8");
+    return httpd_resp_sendstr(req, message);
+}
+
+static bool session_is_running(void) {
+    const attack_status_t *status = attack_get_status();
+    return status != NULL && status->state == RUNNING;
+}
+
 static esp_err_t uri_root_get_handler(httpd_req_t *req) {
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     return httpd_resp_send(req, (const char *)page_index, page_index_len);
 }
 
@@ -177,10 +194,12 @@ static httpd_uri_t uri_reset_head = {
     .user_ctx = NULL
 };
 
-/*
- * Legacy binary AP endpoint is retained for compatibility.
- */
+/* Legacy binary AP endpoint retained for compatibility. */
 static esp_err_t uri_ap_list_get_handler(httpd_req_t *req) {
+    if (session_is_running()) {
+        return send_conflict(req, "Cannot scan while a session is running");
+    }
+
     wifictl_scan_nearby_aps();
 
     const wifictl_ap_records_t *ap_records = wifictl_get_ap_records();
@@ -188,11 +207,15 @@ static esp_err_t uri_ap_list_get_handler(httpd_req_t *req) {
 
     ESP_ERROR_CHECK(httpd_resp_set_type(req, "application/octet-stream"));
 
-    for (unsigned i = 0; i < ap_records->count; i++) {
+    for (unsigned i = 0; i < ap_records->count; ++i) {
         memcpy(resp_chunk, ap_records->records[i].ssid, 33);
         memcpy(&resp_chunk[33], ap_records->records[i].bssid, 6);
         memcpy(&resp_chunk[39], &ap_records->records[i].rssi, 1);
-        ESP_ERROR_CHECK(httpd_resp_send_chunk(req, resp_chunk, sizeof(resp_chunk)));
+
+        ESP_ERROR_CHECK(httpd_resp_send_chunk(
+            req,
+            resp_chunk,
+            sizeof(resp_chunk)));
     }
 
     return httpd_resp_send_chunk(req, NULL, 0);
@@ -206,17 +229,20 @@ static httpd_uri_t uri_ap_list_get = {
 };
 
 static esp_err_t uri_ap_list_api_get_handler(httpd_req_t *req) {
+    if (session_is_running()) {
+        return send_conflict(req, "Cannot scan while a session is running");
+    }
+
     wifictl_scan_nearby_aps();
 
     const wifictl_ap_records_t *ap_records = wifictl_get_ap_records();
 
     ESP_ERROR_CHECK(httpd_resp_set_type(req, "application/json"));
-
-    ESP_ERROR_CHECK(httpd_resp_sendstr_chunk(req, "{"aps":["));
+    ESP_ERROR_CHECK(httpd_resp_set_hdr(req, "Cache-Control", "no-store"));
+    ESP_ERROR_CHECK(httpd_resp_sendstr_chunk(req, "{\"aps\":["));
 
     for (unsigned i = 0; i < ap_records->count; ++i) {
         const wifi_ap_record_t *ap = &ap_records->records[i];
-
         const size_t ssid_len =
             strnlen((const char *)ap->ssid, sizeof(ap->ssid));
 
@@ -224,15 +250,19 @@ static esp_err_t uri_ap_list_api_get_handler(httpd_req_t *req) {
         char bssid[18];
         char item[320];
 
-        json_escape_bytes(ap->ssid, ssid_len,
-                          escaped_ssid, sizeof(escaped_ssid));
+        json_escape_bytes(
+            ap->ssid,
+            ssid_len,
+            escaped_ssid,
+            sizeof(escaped_ssid));
+
         format_mac(ap->bssid, bssid, sizeof(bssid));
 
-        int written = snprintf(
+        const int written = snprintf(
             item,
             sizeof(item),
-            "%s{"id":%u,"ssid":"%s","bssid":"%s","
-            ""rssi":%d,"channel":%u,"auth":"%s"}",
+            "%s{\"id\":%u,\"ssid\":\"%s\",\"bssid\":\"%s\","
+            "\"rssi\":%d,\"channel\":%u,\"auth\":\"%s\"}",
             i == 0 ? "" : ",",
             i,
             escaped_ssid,
@@ -250,7 +280,7 @@ static esp_err_t uri_ap_list_api_get_handler(httpd_req_t *req) {
     }
 
     ESP_ERROR_CHECK(httpd_resp_sendstr_chunk(req, "]}"));
-    return httpd_resp_sendstr_chunk(req, NULL);
+    return httpd_resp_send_chunk(req, NULL, 0);
 }
 
 static httpd_uri_t uri_ap_list_api_get = {
@@ -261,35 +291,54 @@ static httpd_uri_t uri_ap_list_api_get = {
 };
 
 static esp_err_t uri_run_attack_post_handler(httpd_req_t *req) {
+    if (session_is_running()) {
+        return send_conflict(req, "A session is already running");
+    }
+
     if (req->content_len != sizeof(attack_request_t)) {
-        ESP_LOGW(TAG, "Invalid attack request size: %u", (unsigned)req->content_len);
+        ESP_LOGW(TAG,
+                 "Invalid session request size: %u",
+                 (unsigned)req->content_len);
+
         return httpd_resp_send_err(
             req,
             HTTPD_400_BAD_REQUEST,
-            "Invalid attack request");
+            "Invalid session request");
     }
 
     attack_request_t attack_request;
     size_t received = 0;
 
     while (received < sizeof(attack_request)) {
-        int result = httpd_req_recv(
+        const int result = httpd_req_recv(
             req,
             ((char *)&attack_request) + received,
             sizeof(attack_request) - received);
 
         if (result <= 0) {
-            ESP_LOGW(TAG, "Failed to receive attack request body");
+            ESP_LOGW(TAG, "Incomplete session request body");
+
             return httpd_resp_send_err(
                 req,
                 HTTPD_400_BAD_REQUEST,
-                "Incomplete attack request");
+                "Incomplete session request");
         }
 
         received += (size_t)result;
     }
 
-    esp_err_t post_result = esp_event_post(
+    if (attack_request.timeout == 0 ||
+        attack_request.type > ATTACK_TYPE_DOS ||
+        ((attack_request.type == ATTACK_TYPE_HANDSHAKE ||
+          attack_request.type == ATTACK_TYPE_DOS) &&
+         attack_request.method >= 3)) {
+        return httpd_resp_send_err(
+            req,
+            HTTPD_400_BAD_REQUEST,
+            "Invalid session configuration");
+    }
+
+    const esp_err_t post_result = esp_event_post(
         WEBSERVER_EVENTS,
         WEBSERVER_EVENT_ATTACK_REQUEST,
         &attack_request,
@@ -297,8 +346,10 @@ static esp_err_t uri_run_attack_post_handler(httpd_req_t *req) {
         portMAX_DELAY);
 
     if (post_result != ESP_OK) {
-        ESP_LOGE(TAG, "Unable to queue attack request: %s",
+        ESP_LOGE(TAG,
+                 "Unable to queue session request: %s",
                  esp_err_to_name(post_result));
+
         return httpd_resp_send_err(
             req,
             HTTPD_500_INTERNAL_SERVER_ERROR,
@@ -361,6 +412,7 @@ static esp_err_t uri_session_get_handler(httpd_req_t *req) {
     char json[1024];
 
     format_mac(session.bssid, bssid, sizeof(bssid));
+
     json_escape_bytes(
         (const uint8_t *)session.ssid,
         strnlen(session.ssid, sizeof(session.ssid)),
@@ -371,28 +423,28 @@ static esp_err_t uri_session_get_handler(httpd_req_t *req) {
         json,
         sizeof(json),
         "{"
-        ""id":%lu,"
-        ""state":"%s","
-        ""type":"%s","
-        ""method":"%s","
-        ""timeout_sec":%u,"
-        ""elapsed_ms":%lu,"
-        ""target":{"
-            ""ssid":"%s","
-            ""bssid":"%s","
-            ""channel":%u,"
-            ""rssi":%d"
+        "\"id\":%lu,"
+        "\"state\":\"%s\","
+        "\"type\":\"%s\","
+        "\"method\":\"%s\","
+        "\"timeout_sec\":%u,"
+        "\"elapsed_ms\":%lu,"
+        "\"target\":{"
+            "\"ssid\":\"%s\","
+            "\"bssid\":\"%s\","
+            "\"channel\":%u,"
+            "\"rssi\":%d"
         "},"
-        ""metrics":{"
-            ""frames_seen":%lu,"
-            ""eapol_frames":%lu,"
-            ""pmkid_count":%u,"
-            ""last_frame_len":%u,"
-            ""pcap_size":%lu"
+        "\"metrics\":{"
+            "\"frames_seen\":%lu,"
+            "\"eapol_frames\":%lu,"
+            "\"pmkid_count\":%u,"
+            "\"last_frame_len\":%u,"
+            "\"pcap_size\":%lu"
         "},"
-        ""result":{"
-            ""size":%u,"
-            ""hccapx_ready":%s"
+        "\"result\":{"
+            "\"size\":%u,"
+            "\"hccapx_ready\":%s"
         "}"
         "}",
         (unsigned long)session.id,
@@ -420,7 +472,9 @@ static esp_err_t uri_session_get_handler(httpd_req_t *req) {
             "Session response too large");
     }
 
-    httpd_resp_set_type(req, "application/json");
+    ESP_ERROR_CHECK(httpd_resp_set_type(req, "application/json"));
+    ESP_ERROR_CHECK(httpd_resp_set_hdr(req, "Cache-Control", "no-store"));
+
     return httpd_resp_send(req, json, written);
 }
 
@@ -432,6 +486,10 @@ static httpd_uri_t uri_session_get = {
 };
 
 static esp_err_t uri_capture_pcap_get_handler(httpd_req_t *req) {
+    if (session_is_running()) {
+        return send_conflict(req, "Capture artifact is locked while session is running");
+    }
+
     const unsigned size = pcap_serializer_get_size();
     const uint8_t *buffer = pcap_serializer_get_buffer();
 
@@ -443,11 +501,13 @@ static esp_err_t uri_capture_pcap_get_handler(httpd_req_t *req) {
     }
 
     ESP_LOGD(TAG, "Providing PCAP file");
-    httpd_resp_set_type(req, "application/vnd.tcpdump.pcap");
-    httpd_resp_set_hdr(
+    ESP_ERROR_CHECK(httpd_resp_set_type(
+        req,
+        "application/vnd.tcpdump.pcap"));
+    ESP_ERROR_CHECK(httpd_resp_set_hdr(
         req,
         "Content-Disposition",
-        "attachment; filename="capture.pcap"");
+        "attachment; filename=\"capture.pcap\""));
 
     return httpd_resp_send(
         req,
@@ -463,6 +523,10 @@ static httpd_uri_t uri_capture_pcap_get = {
 };
 
 static esp_err_t uri_capture_hccapx_get_handler(httpd_req_t *req) {
+    if (session_is_running()) {
+        return send_conflict(req, "Capture artifact is locked while session is running");
+    }
+
     hccapx_t *hccapx = hccapx_serializer_get();
 
     if (hccapx == NULL) {
@@ -473,11 +537,13 @@ static esp_err_t uri_capture_hccapx_get_handler(httpd_req_t *req) {
     }
 
     ESP_LOGD(TAG, "Providing HCCAPX file");
-    httpd_resp_set_type(req, "application/octet-stream");
-    httpd_resp_set_hdr(
+    ESP_ERROR_CHECK(httpd_resp_set_type(
+        req,
+        "application/octet-stream"));
+    ESP_ERROR_CHECK(httpd_resp_set_hdr(
         req,
         "Content-Disposition",
-        "attachment; filename="capture.hccapx"");
+        "attachment; filename=\"capture.hccapx\""));
 
     return httpd_resp_send(
         req,
@@ -499,6 +565,7 @@ void webserver_run() {
     httpd_handle_t server = NULL;
 
     ESP_ERROR_CHECK(httpd_start(&server, &config));
+
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_root_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_reset_head));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_ap_list_get));
